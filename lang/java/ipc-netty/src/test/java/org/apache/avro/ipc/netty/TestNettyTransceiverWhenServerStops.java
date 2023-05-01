@@ -24,12 +24,12 @@ import org.apache.avro.test.Mail;
 import org.apache.avro.test.Message;
 
 import java.net.InetSocketAddress;
+
+import static org.junit.jupiter.api.Assertions.fail;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.Assert.fail;
 
 public class TestNettyTransceiverWhenServerStops {
 //  @Test                                           // disable flakey test!
@@ -41,7 +41,7 @@ public class TestNettyTransceiverWhenServerStops {
 
     int serverPort = server.getPort();
 
-    final NettyTransceiver transceiver = new NettyTransceiver(new InetSocketAddress(serverPort), 60000L);
+    final NettyTransceiver transceiver = new NettyTransceiver(new InetSocketAddress(serverPort), 60000);
     final Mail mail = SpecificRequestor.getClient(Mail.class, transceiver);
 
     final AtomicInteger successes = new AtomicInteger();

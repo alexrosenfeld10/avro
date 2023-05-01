@@ -30,9 +30,11 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumWriter;
 import org.apache.trevni.ColumnFileMetaData;
 import org.apache.trevni.avro.AvroColumnReader.Params;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TestEvolvedSchema {
   private static String writerSchema = "{" + "    \"namespace\": \"org.apache.avro\","
@@ -56,7 +58,7 @@ public class TestEvolvedSchema {
   private static final Schema evolved = new Schema.Parser().parse(evolvedSchema2);
   private static final Schema inner = new Schema.Parser().parse(innerSchema);
 
-  @Before
+  @BeforeEach
   public void setUp() {
     writtenRecord = new GenericData.Record(writer);
     writtenRecord.put("a", "record");
@@ -73,7 +75,7 @@ public class TestEvolvedSchema {
   }
 
   @Test
-  public void testTrevniEvolvedRead() throws IOException {
+  void trevniEvolvedRead() throws IOException {
     AvroColumnWriter<GenericRecord> acw = new AvroColumnWriter<>(writer, new ColumnFileMetaData());
     acw.write(writtenRecord);
     File serializedTrevni = File.createTempFile("trevni", null);
@@ -81,14 +83,15 @@ public class TestEvolvedSchema {
 
     AvroColumnReader.Params params = new Params(serializedTrevni);
     params.setSchema(evolved);
-    AvroColumnReader<GenericRecord> acr = new AvroColumnReader<>(params);
-    GenericRecord readRecord = acr.next();
-    Assert.assertEquals(evolvedRecord, readRecord);
-    Assert.assertFalse(acr.hasNext());
+    try (AvroColumnReader<GenericRecord> acr = new AvroColumnReader<>(params)) {
+      GenericRecord readRecord = acr.next();
+      assertEquals(evolvedRecord, readRecord);
+      assertFalse(acr.hasNext());
+    }
   }
 
   @Test
-  public void testAvroEvolvedRead() throws IOException {
+  void avroEvolvedRead() throws IOException {
     File serializedAvro = File.createTempFile("avro", null);
     DatumWriter<GenericRecord> dw = new GenericDatumWriter<>(writer);
     DataFileWriter<GenericRecord> dfw = new DataFileWriter<>(dw);
@@ -99,10 +102,11 @@ public class TestEvolvedSchema {
 
     GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(writer);
     reader.setExpected(evolved);
-    DataFileReader<GenericRecord> dfr = new DataFileReader<>(serializedAvro, reader);
-    GenericRecord readRecord = dfr.next();
-    Assert.assertEquals(evolvedRecord, readRecord);
-    Assert.assertFalse(dfr.hasNext());
+    try (DataFileReader<GenericRecord> dfr = new DataFileReader<>(serializedAvro, reader)) {
+      GenericRecord readRecord = dfr.next();
+      assertEquals(evolvedRecord, readRecord);
+      assertFalse(dfr.hasNext());
+    }
   }
 
 }

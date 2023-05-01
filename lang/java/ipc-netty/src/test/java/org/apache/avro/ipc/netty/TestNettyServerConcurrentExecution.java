@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 
 import org.apache.avro.ipc.Server;
 import org.apache.avro.ipc.Transceiver;
@@ -31,11 +30,11 @@ import org.apache.avro.ipc.specific.SpecificResponder;
 import org.apache.avro.test.Simple;
 import org.apache.avro.test.TestError;
 import org.apache.avro.test.TestRecord;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.execution.ExecutionHandler;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies that RPCs executed by different client threads using the same
@@ -60,7 +59,7 @@ public class TestNettyServerConcurrentExecution {
   private Server server;
   private Transceiver transceiver;
 
-  @After
+  @AfterEach
   public void cleanUpAfter() throws Exception {
     try {
       if (transceiver != null) {
@@ -78,12 +77,11 @@ public class TestNettyServerConcurrentExecution {
     }
   }
 
-  @Test(timeout = 30000)
-  public void test() throws Exception {
+  @Test
+  @Timeout(30000)
+  void test() throws Exception {
     final CountDownLatch waitLatch = new CountDownLatch(1);
-    server = new NettyServer(new SpecificResponder(Simple.class, new SimpleImpl(waitLatch)), new InetSocketAddress(0),
-        new NioServerSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()),
-        new ExecutionHandler(Executors.newCachedThreadPool()));
+    server = new NettyServer(new SpecificResponder(Simple.class, new SimpleImpl(waitLatch)), new InetSocketAddress(0));
     server.start();
 
     transceiver = new NettyTransceiver(new InetSocketAddress(server.getPort()), TestNettyServer.CONNECT_TIMEOUT_MILLIS);
@@ -121,7 +119,8 @@ public class TestNettyServerConcurrentExecution {
     String response = simpleClient.hello("wait");
 
     // 4. If control reaches here, both RPCs have executed concurrently
-    Assert.assertEquals("wait", response);
+    assertEquals("wait", response);
+    Thread.sleep(2000);
   }
 
   /**
@@ -146,6 +145,7 @@ public class TestNettyServerConcurrentExecution {
     @Override
     public int add(int arg1, int arg2) {
       // Step 1:
+      System.out.println("Adding " + arg1 + "+" + arg2);
       return arg1 + arg2;
     }
 

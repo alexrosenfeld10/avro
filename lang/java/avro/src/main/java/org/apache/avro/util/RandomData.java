@@ -18,14 +18,20 @@
 package org.apache.avro.util;
 
 import java.io.File;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileWriter;
@@ -37,6 +43,8 @@ import org.apache.avro.generic.GenericRecord;
 /** Generates schema data as Java objects with random values. */
 public class RandomData implements Iterable<Object> {
   public static final String USE_DEFAULT = "use-default";
+
+  private static final int MILLIS_IN_DAY = (int) Duration.ofDays(1).toMillis();
 
   private final Schema root;
   private final long seed;
@@ -126,9 +134,9 @@ public class RandomData implements Iterable<Object> {
     case BYTES:
       return randomBytes(random, 40);
     case INT:
-      return random.nextInt();
+      return this.randomInt(random, schema.getLogicalType());
     case LONG:
-      return random.nextLong();
+      return this.randomLong(random, schema.getLogicalType());
     case FLOAT:
       return random.nextFloat();
     case DOUBLE:
@@ -142,7 +150,24 @@ public class RandomData implements Iterable<Object> {
     }
   }
 
-  private static final Charset UTF8 = Charset.forName("UTF-8");
+  private static final Charset UTF8 = StandardCharsets.UTF_8;
+
+  private int randomInt(Random random, LogicalType type) {
+    if (type instanceof LogicalTypes.TimeMillis) {
+      return random.nextInt(RandomData.MILLIS_IN_DAY - 1);
+    }
+    // LogicalTypes.Date LocalDate.MAX.toEpochDay() > Integer.MAX;
+    return random.nextInt();
+  }
+
+  private long randomLong(Random random, LogicalType type) {
+    if (type instanceof LogicalTypes.TimeMicros) {
+      return ThreadLocalRandom.current().nextLong(RandomData.MILLIS_IN_DAY * 1000L);
+    }
+    // For LogicalTypes.TimestampMillis, every long would be OK,
+    // Instant.MAX.toEpochMilli() failed and would be > Long.MAX_VALUE.
+    return random.nextLong();
+  }
 
   private Object randomString(Random random, int maxLength) {
     int length = random.nextInt(maxLength);
@@ -155,7 +180,7 @@ public class RandomData implements Iterable<Object> {
 
   private static ByteBuffer randomBytes(Random rand, int maxLength) {
     ByteBuffer bytes = ByteBuffer.allocate(rand.nextInt(maxLength));
-    bytes.limit(bytes.capacity());
+    ((Buffer) bytes).limit(bytes.capacity());
     rand.nextBytes(bytes.array());
     return bytes;
   }
@@ -166,15 +191,14 @@ public class RandomData implements Iterable<Object> {
       System.exit(-1);
     }
     Schema sch = new Schema.Parser().parse(new File(args[0]));
-    DataFileWriter<Object> writer = new DataFileWriter<>(new GenericDatumWriter<>());
-    writer.setCodec(CodecFactory.fromString(args.length >= 4 ? args[3] : "null"));
-    writer.create(sch, new File(args[1]));
-    try {
+    try (DataFileWriter<Object> writer = new DataFileWriter<>(new GenericDatumWriter<>())) {
+      writer.setCodec(CodecFactory.fromString(args.length >= 4 ? args[3] : "null"));
+      writer.setMeta("user_metadata", "someByteArray".getBytes(StandardCharsets.UTF_8));
+      writer.create(sch, new File(args[1]));
+
       for (Object datum : new RandomData(sch, Integer.parseInt(args[2]))) {
         writer.append(datum);
       }
-    } finally {
-      writer.close();
     }
   }
 }

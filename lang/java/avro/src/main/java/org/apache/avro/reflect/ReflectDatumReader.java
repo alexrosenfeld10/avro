@@ -21,8 +21,11 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Conversion;
@@ -92,8 +95,16 @@ public class ReflectDatumReader<T> extends SpecificDatumReader<T> {
         ((Collection<?>) old).clear();
         return old;
       }
+
       if (collectionClass.isAssignableFrom(ArrayList.class))
         return new ArrayList<>();
+
+      if (collectionClass.isAssignableFrom(HashSet.class))
+        return new HashSet<>();
+
+      if (collectionClass.isAssignableFrom(HashMap.class))
+        return new HashMap<>();
+
       return SpecificData.newInstance(collectionClass, schema);
     }
 
@@ -135,7 +146,7 @@ public class ReflectDatumReader<T> extends SpecificDatumReader<T> {
       return readCollection(c, expectedType, l, in);
     } else if (array instanceof Map) {
       // Only for non-string keys, we can use NS_MAP_* fields
-      // So we check the samee explicitly here
+      // So we check the same explicitly here
       if (ReflectData.isNonStringMapSchema(expected)) {
         Collection<Object> c = new ArrayList<>();
         readCollection(c, expectedType, l, in);
@@ -254,18 +265,19 @@ public class ReflectDatumReader<T> extends SpecificDatumReader<T> {
   }
 
   @Override
-  protected void readField(Object record, Field f, Object oldDatum, ResolvingDecoder in, Object state)
+  protected void readField(Object record, Field field, Object oldDatum, ResolvingDecoder in, Object state)
       throws IOException {
     if (state != null) {
-      FieldAccessor accessor = ((FieldAccessor[]) state)[f.pos()];
+      FieldAccessor accessor = ((FieldAccessor[]) state)[field.pos()];
       if (accessor != null) {
-        if (accessor.supportsIO() && (!Schema.Type.UNION.equals(f.schema().getType()) || accessor.isCustomEncoded())) {
+        if (accessor.supportsIO()
+            && (!Schema.Type.UNION.equals(field.schema().getType()) || accessor.isCustomEncoded())) {
           accessor.read(record, in);
           return;
         }
         if (accessor.isStringable()) {
           try {
-            String asString = (String) read(null, f.schema(), in);
+            String asString = (String) read(null, field.schema(), in);
             accessor.set(record,
                 asString == null ? null : newInstanceFromString(accessor.getField().getType(), asString));
             return;
@@ -273,27 +285,36 @@ public class ReflectDatumReader<T> extends SpecificDatumReader<T> {
             throw new AvroRuntimeException("Failed to read Stringable", e);
           }
         }
-        LogicalType logicalType = f.schema().getLogicalType();
+        LogicalType logicalType = field.schema().getLogicalType();
         if (logicalType != null) {
           Conversion<?> conversion = getData().getConversionByClass(accessor.getField().getType(), logicalType);
           if (conversion != null) {
             try {
-              accessor.set(record,
-                  convert(readWithoutConversion(oldDatum, f.schema(), in), f.schema(), logicalType, conversion));
+              accessor.set(record, convert(readWithoutConversion(oldDatum, field.schema(), in), field.schema(),
+                  logicalType, conversion));
             } catch (IllegalAccessException e) {
-              throw new AvroRuntimeException("Failed to set " + f);
+              throw new AvroRuntimeException("Failed to set " + field);
             }
             return;
           }
         }
+        if (Optional.class.isAssignableFrom(accessor.getField().getType())) {
+          try {
+            Object value = readWithoutConversion(oldDatum, field.schema(), in);
+            accessor.set(record, Optional.ofNullable(value));
+            return;
+          } catch (IllegalAccessException e) {
+            throw new AvroRuntimeException("Failed to set " + field);
+          }
+        }
         try {
-          accessor.set(record, readWithoutConversion(oldDatum, f.schema(), in));
+          accessor.set(record, readWithoutConversion(oldDatum, field.schema(), in));
           return;
         } catch (IllegalAccessException e) {
-          throw new AvroRuntimeException("Failed to set " + f);
+          throw new AvroRuntimeException("Failed to set " + field);
         }
       }
     }
-    super.readField(record, f, oldDatum, in, state);
+    super.readField(record, field, oldDatum, in, state);
   }
 }

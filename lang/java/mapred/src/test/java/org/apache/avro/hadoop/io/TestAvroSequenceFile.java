@@ -18,7 +18,7 @@
 
 package org.apache.avro.hadoop.io;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,23 +32,23 @@ import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestAvroSequenceFile {
   // Disable checkstyle for this variable. It must be public to work with JUnit
   // @Rule.
   // CHECKSTYLE:OFF
-  @Rule
-  public TemporaryFolder mTempDir = new TemporaryFolder();
+  @TempDir
+  public File mTempDir;
+
   // CHECKSTYLE:ON
 
   /** Tests that reading and writing avro data works. */
   @Test
   @SuppressWarnings("unchecked")
-  public void testReadAvro() throws IOException {
-    Path sequenceFilePath = new Path(new File(mTempDir.getRoot(), "output.seq").getPath());
+  void readAvro() throws IOException {
+    Path sequenceFilePath = new Path(new File(mTempDir, "output.seq").getPath());
 
     writeSequenceFile(sequenceFilePath, AvroKey.class, AvroValue.class, Schema.create(Schema.Type.STRING),
         Schema.create(Schema.Type.INT), new AvroKey<CharSequence>("one"), new AvroValue<>(1),
@@ -59,28 +59,28 @@ public class TestAvroSequenceFile {
     AvroSequenceFile.Reader.Options options = new AvroSequenceFile.Reader.Options().withFileSystem(fs)
         .withInputPath(sequenceFilePath).withKeySchema(Schema.create(Schema.Type.STRING))
         .withValueSchema(Schema.create(Schema.Type.INT)).withConfiguration(conf);
-    SequenceFile.Reader reader = new AvroSequenceFile.Reader(options);
+    try (SequenceFile.Reader reader = new AvroSequenceFile.Reader(options)) {
+      AvroKey<CharSequence> key = new AvroKey<>();
+      AvroValue<Integer> value = new AvroValue<>();
 
-    AvroKey<CharSequence> key = new AvroKey<>();
-    AvroValue<Integer> value = new AvroValue<>();
+      // Read the first record.
+      key = (AvroKey<CharSequence>) reader.next(key);
+      assertNotNull(key);
+      assertEquals("one", key.datum().toString());
+      value = (AvroValue<Integer>) reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(1, value.datum().intValue());
 
-    // Read the first record.
-    key = (AvroKey<CharSequence>) reader.next(key);
-    assertNotNull(key);
-    assertEquals("one", key.datum().toString());
-    value = (AvroValue<Integer>) reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(1, value.datum().intValue());
+      // Read the second record.
+      key = (AvroKey<CharSequence>) reader.next(key);
+      assertNotNull(key);
+      assertEquals("two", key.datum().toString());
+      value = (AvroValue<Integer>) reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(2, value.datum().intValue());
 
-    // Read the second record.
-    key = (AvroKey<CharSequence>) reader.next(key);
-    assertNotNull(key);
-    assertEquals("two", key.datum().toString());
-    value = (AvroValue<Integer>) reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(2, value.datum().intValue());
-
-    assertNull("Should be no more records.", reader.next(key));
+      assertNull(reader.next(key), "Should be no more records.");
+    }
   }
 
   /**
@@ -88,8 +88,8 @@ public class TestAvroSequenceFile {
    */
   @Test
   @SuppressWarnings("unchecked")
-  public void testReadAvroWithoutReaderSchemas() throws IOException {
-    Path sequenceFilePath = new Path(new File(mTempDir.getRoot(), "output.seq").getPath());
+  void readAvroWithoutReaderSchemas() throws IOException {
+    Path sequenceFilePath = new Path(new File(mTempDir, "output.seq").getPath());
 
     writeSequenceFile(sequenceFilePath, AvroKey.class, AvroValue.class, Schema.create(Schema.Type.STRING),
         Schema.create(Schema.Type.INT), new AvroKey<CharSequence>("one"), new AvroValue<>(1),
@@ -99,34 +99,35 @@ public class TestAvroSequenceFile {
     FileSystem fs = FileSystem.get(conf);
     AvroSequenceFile.Reader.Options options = new AvroSequenceFile.Reader.Options().withFileSystem(fs)
         .withInputPath(sequenceFilePath).withConfiguration(conf);
-    SequenceFile.Reader reader = new AvroSequenceFile.Reader(options);
 
-    AvroKey<CharSequence> key = new AvroKey<>();
-    AvroValue<Integer> value = new AvroValue<>();
+    try (SequenceFile.Reader reader = new AvroSequenceFile.Reader(options)) {
+      AvroKey<CharSequence> key = new AvroKey<>();
+      AvroValue<Integer> value = new AvroValue<>();
 
-    // Read the first record.
-    key = (AvroKey<CharSequence>) reader.next(key);
-    assertNotNull(key);
-    assertEquals("one", key.datum().toString());
-    value = (AvroValue<Integer>) reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(1, value.datum().intValue());
+      // Read the first record.
+      key = (AvroKey<CharSequence>) reader.next(key);
+      assertNotNull(key);
+      assertEquals("one", key.datum().toString());
+      value = (AvroValue<Integer>) reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(1, value.datum().intValue());
 
-    // Read the second record.
-    key = (AvroKey<CharSequence>) reader.next(key);
-    assertNotNull(key);
-    assertEquals("two", key.datum().toString());
-    value = (AvroValue<Integer>) reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(2, value.datum().intValue());
+      // Read the second record.
+      key = (AvroKey<CharSequence>) reader.next(key);
+      assertNotNull(key);
+      assertEquals("two", key.datum().toString());
+      value = (AvroValue<Integer>) reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(2, value.datum().intValue());
 
-    assertNull("Should be no more records.", reader.next(key));
+      assertNull(reader.next(key), "Should be no more records.");
+    }
   }
 
   /** Tests that reading and writing ordinary Writables still works. */
   @Test
-  public void testReadWritables() throws IOException {
-    Path sequenceFilePath = new Path(new File(mTempDir.getRoot(), "output.seq").getPath());
+  void readWritables() throws IOException {
+    Path sequenceFilePath = new Path(new File(mTempDir, "output.seq").getPath());
 
     writeSequenceFile(sequenceFilePath, Text.class, IntWritable.class, null, null, new Text("one"), new IntWritable(1),
         new Text("two"), new IntWritable(2));
@@ -135,26 +136,28 @@ public class TestAvroSequenceFile {
     FileSystem fs = FileSystem.get(conf);
     AvroSequenceFile.Reader.Options options = new AvroSequenceFile.Reader.Options().withFileSystem(fs)
         .withInputPath(sequenceFilePath).withConfiguration(conf);
-    SequenceFile.Reader reader = new AvroSequenceFile.Reader(options);
 
-    Text key = new Text();
-    IntWritable value = new IntWritable();
+    try (SequenceFile.Reader reader = new AvroSequenceFile.Reader(options)) {
+      Text key = new Text();
+      IntWritable value = new IntWritable();
 
-    // Read the first record.
-    assertTrue(reader.next(key));
-    assertEquals("one", key.toString());
-    reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(1, value.get());
+      // Read the first record.
+      assertTrue(reader.next(key));
+      assertEquals("one", key.toString());
+      reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(1, value.get());
 
-    // Read the second record.
-    assertTrue(reader.next(key));
-    assertEquals("two", key.toString());
-    reader.getCurrentValue(value);
-    assertNotNull(value);
-    assertEquals(2, value.get());
+      // Read the second record.
+      assertTrue(reader.next(key));
+      assertEquals("two", key.toString());
+      reader.getCurrentValue(value);
+      assertNotNull(value);
+      assertEquals(2, value.get());
 
-    assertFalse("Should be no more records.", reader.next(key));
+      assertFalse(reader.next(key), "Should be no more records.");
+
+    }
   }
 
   /**
@@ -188,14 +191,11 @@ public class TestAvroSequenceFile {
     } else {
       options.withValueClass(valueClass);
     }
-    SequenceFile.Writer writer = new AvroSequenceFile.Writer(options);
-
-    // Write some records.
-    for (int i = 0; i < records.length; i += 2) {
-      writer.append(records[i], records[i + 1]);
+    try (SequenceFile.Writer writer = new AvroSequenceFile.Writer(options)) {
+      // Write some records.
+      for (int i = 0; i < records.length; i += 2) {
+        writer.append(records[i], records[i + 1]);
+      }
     }
-
-    // Close the file.
-    writer.close();
   }
 }

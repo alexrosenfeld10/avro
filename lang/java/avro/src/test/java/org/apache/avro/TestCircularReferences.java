@@ -18,10 +18,16 @@
 
 package org.apache.avro;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.FileReader;
@@ -31,16 +37,14 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.util.Utf8;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestCircularReferences {
 
-  @Rule
-  public TemporaryFolder temp = new TemporaryFolder();
+  @TempDir
+  public File temp;
 
   public static class Reference extends LogicalType {
     private static final String REFERENCE = "reference";
@@ -80,6 +84,18 @@ public class TestCircularReferences {
       if (schema.getField(refFieldName) == null) {
         throw new IllegalArgumentException("Invalid field name for reference field: " + refFieldName);
       }
+    }
+  }
+
+  public static class ReferenceTypeFactory implements LogicalTypes.LogicalTypeFactory {
+    @Override
+    public LogicalType fromSchema(Schema schema) {
+      return new Reference(schema);
+    }
+
+    @Override
+    public String getTypeName() {
+      return Reference.REFERENCE;
     }
   }
 
@@ -125,10 +141,22 @@ public class TestCircularReferences {
     }
   }
 
-  @BeforeClass
+  public static class ReferenceableTypeFactory implements LogicalTypes.LogicalTypeFactory {
+    @Override
+    public LogicalType fromSchema(Schema schema) {
+      return new Referenceable(schema);
+    }
+
+    @Override
+    public String getTypeName() {
+      return Referenceable.REFERENCEABLE;
+    }
+  }
+
+  @BeforeAll
   public static void addReferenceTypes() {
-    LogicalTypes.register(Referenceable.REFERENCEABLE, Referenceable::new);
-    LogicalTypes.register(Reference.REFERENCE, Reference::new);
+    LogicalTypes.register(Referenceable.REFERENCEABLE, new ReferenceableTypeFactory());
+    LogicalTypes.register(Reference.REFERENCE, new ReferenceTypeFactory());
   }
 
   public static class ReferenceManager {
@@ -276,7 +304,7 @@ public class TestCircularReferences {
   }
 
   @Test
-  public void test() throws IOException {
+  void test() throws IOException {
     ReferenceManager manager = new ReferenceManager();
     GenericData model = new GenericData();
     model.addLogicalTypeConversion(manager.getTracker());
@@ -321,17 +349,17 @@ public class TestCircularReferences {
     Record actual = records.get(0);
 
     // because the record is a recursive structure, equals won't work
-    Assert.assertEquals("Should correctly read back the parent id", 1L, actual.get("id"));
-    Assert.assertEquals("Should correctly read back the parent data", new Utf8("parent data!"), actual.get("p"));
+    assertEquals(1L, actual.get("id"), "Should correctly read back the parent id");
+    assertEquals(new Utf8("parent data!"), actual.get("p"), "Should correctly read back the parent data");
 
     Record actualChild = (Record) actual.get("child");
-    Assert.assertEquals("Should correctly read back the child data", new Utf8("child data!"), actualChild.get("c"));
+    assertEquals(new Utf8("child data!"), actualChild.get("c"), "Should correctly read back the child data");
     Object childParent = actualChild.get("parent");
-    Assert.assertTrue("Should have a parent Record object", childParent instanceof Record);
+    assertTrue(childParent instanceof Record, "Should have a parent Record object");
 
     Record childParentRecord = (Record) actualChild.get("parent");
-    Assert.assertEquals("Should have the right parent id", 1L, childParentRecord.get("id"));
-    Assert.assertEquals("Should have the right parent data", new Utf8("parent data!"), childParentRecord.get("p"));
+    assertEquals(1L, childParentRecord.get("id"), "Should have the right parent id");
+    assertEquals(new Utf8("parent data!"), childParentRecord.get("p"), "Should have the right parent data");
   }
 
   private <D> List<D> read(GenericData model, Schema schema, File file) throws IOException {
@@ -354,7 +382,7 @@ public class TestCircularReferences {
 
   @SuppressWarnings("unchecked")
   private <D> File write(GenericData model, Schema schema, D... data) throws IOException {
-    File file = temp.newFile();
+    File file = File.createTempFile("junit", null, temp);
     DatumWriter<D> writer = model.createDatumWriter(schema);
 
     try (DataFileWriter<D> fileWriter = new DataFileWriter<>(writer)) {

@@ -17,7 +17,7 @@
  */
 package org.apache.avro;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -31,18 +31,18 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.util.Utf8;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestDataFileCorruption {
 
-  private static final File DIR = new File("/tmp");
+  private static final File DIR = new File(System.getProperty("java.io.tmpdir"));
 
   private File makeFile(String name) {
     return new File(DIR, "test-" + name + ".avro");
   }
 
   @Test
-  public void testCorruptedFile() throws IOException {
+  void corruptedFile() throws IOException {
     Schema schema = Schema.create(Type.STRING);
 
     // Write a data file
@@ -76,19 +76,19 @@ public class TestDataFileCorruption {
     out.close();
 
     // Read the data file
-    DataFileReader r = new DataFileReader<>(file, new GenericDatumReader<>(schema));
-    assertEquals("apple", r.next().toString());
-    assertEquals("banana", r.next().toString());
-    long prevSync = r.previousSync();
-    try {
+    try (DataFileReader r = new DataFileReader<>(file, new GenericDatumReader<>(schema))) {
+      assertEquals("apple", r.next().toString());
+      assertEquals("banana", r.next().toString());
+      long prevSync = r.previousSync();
       r.next();
       fail("Corrupt block should throw exception");
+      r.sync(prevSync); // go to sync point after previous successful one
+      assertEquals("endive", r.next().toString());
+      assertEquals("fig", r.next().toString());
+      assertFalse(r.hasNext());
     } catch (AvroRuntimeException e) {
       assertEquals("Invalid sync!", e.getCause().getMessage());
     }
-    r.sync(prevSync); // go to sync point after previous successful one
-    assertEquals("endive", r.next().toString());
-    assertEquals("fig", r.next().toString());
-    assertFalse(r.hasNext());
+
   }
 }

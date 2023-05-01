@@ -19,6 +19,7 @@ package org.apache.trevni;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
@@ -144,7 +145,7 @@ class InputBuffer {
     bitCount++;
     if (bitCount == 8)
       bitCount = 0;
-    return bit == 0 ? false : true;
+    return bit != 0;
   }
 
   public int readLength() throws IOException {
@@ -327,12 +328,12 @@ class InputBuffer {
     ByteBuffer result;
     if (old != null && length <= old.capacity()) {
       result = old;
-      result.clear();
+      ((Buffer) result).clear();
     } else {
       result = ByteBuffer.allocate(length);
     }
     readFully(result.array(), result.position(), length);
-    result.limit(length);
+    ((Buffer) result).limit(length);
     return result;
   }
 

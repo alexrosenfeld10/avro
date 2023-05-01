@@ -19,16 +19,27 @@ package org.apache.avro.util.internal;
 
 import static org.apache.avro.util.internal.JacksonUtils.toJsonNode;
 import static org.apache.avro.util.internal.JacksonUtils.toObject;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BigIntegerNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Collections;
-
-import com.fasterxml.jackson.databind.node.*;
 import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestJacksonUtils {
 
@@ -37,8 +48,8 @@ public class TestJacksonUtils {
   }
 
   @Test
-  public void testToJsonNode() {
-    assertEquals(null, toJsonNode(null));
+  void testToJsonNode() {
+    assertNull(toJsonNode(null));
     assertEquals(NullNode.getInstance(), toJsonNode(JsonProperties.NULL_VALUE));
     assertEquals(BooleanNode.TRUE, toJsonNode(true));
     assertEquals(IntNode.valueOf(1), toJsonNode(1));
@@ -48,6 +59,8 @@ public class TestJacksonUtils {
     assertEquals(TextNode.valueOf("\u0001\u0002"), toJsonNode(new byte[] { 1, 2 }));
     assertEquals(TextNode.valueOf("a"), toJsonNode("a"));
     assertEquals(TextNode.valueOf("UP"), toJsonNode(Direction.UP));
+    assertEquals(BigIntegerNode.valueOf(BigInteger.ONE), toJsonNode(BigInteger.ONE));
+    assertEquals(DecimalNode.valueOf(BigDecimal.ONE), toJsonNode(BigDecimal.ONE));
 
     ArrayNode an = JsonNodeFactory.instance.arrayNode();
     an.add(1);
@@ -59,8 +72,8 @@ public class TestJacksonUtils {
   }
 
   @Test
-  public void testToObject() {
-    assertEquals(null, toObject(null));
+  void testToObject() {
+    assertNull(toObject(null));
     assertEquals(JsonProperties.NULL_VALUE, toObject(NullNode.getInstance()));
     assertEquals(true, toObject(BooleanNode.TRUE));
     assertEquals(1, toObject(IntNode.valueOf(1)));

@@ -18,22 +18,25 @@
 
 package org.apache.avro.reflect;
 
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.lessThan;
-import static org.junit.Assert.assertThat;
-
-import java.util.Collections;
-
+import org.apache.avro.AvroTypeException;
 import org.apache.avro.Protocol;
 import org.apache.avro.Schema;
-import org.junit.Test;
+import org.apache.avro.util.internal.JacksonUtils;
+import org.junit.jupiter.api.Test;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class TestReflectData {
   @Test
   @SuppressWarnings("unchecked")
-  public void testWeakSchemaCaching() throws Exception {
+  void weakSchemaCaching() throws Exception {
     int numSchemas = 1000000;
     for (int i = 0; i < numSchemas; i++) {
       // Create schema
@@ -52,7 +55,7 @@ public class TestReflectData {
   }
 
   @Test
-  public void testGenericProtocol() {
+  void genericProtocol() {
     Protocol protocol = ReflectData.get().getProtocol(FooBarProtocol.class);
     Schema recordSchema = ReflectData.get().getSchema(FooBarReflectiveRecord.class);
 
@@ -89,5 +92,59 @@ public class TestReflectData {
   private static class FooBarReflectiveRecord {
     private String bar;
     private int baz;
+  }
+
+  static class User {
+    public String first = "Avro";
+    public String last = "Apache";
+  }
+
+  static class Meta {
+    public int f1 = 55;
+    public int f4;
+    public String f2 = "a-string";
+    public List<String> f3 = Arrays.asList("one", "two", "three");
+    // public User usr = new User();
+  }
+
+  @Test
+  void createSchemaDefaultValue() {
+    Meta meta = new Meta();
+    validateSchema(meta);
+
+    meta.f4 = 0x1987;
+    validateSchema(meta);
+  }
+
+  private void validateSchema(Meta meta) {
+    Schema schema = new ReflectData().setDefaultsGenerated(true).setDefaultGeneratedValue(Meta.class, meta)
+        .getSchema(Meta.class);
+
+    final String schemaString = schema.toString(true);
+
+    Schema.Parser parser = new Schema.Parser();
+    Schema cloneSchema = parser.parse(schemaString);
+
+    Map testCases = JacksonUtils.objectToMap(meta);
+
+    for (Schema.Field field : cloneSchema.getFields()) {
+      assertEquals(field.defaultVal(), testCases.get(field.name()), "Invalid field " + field.name());
+    }
+  }
+
+  public class Definition {
+    public Map<String, String> tokens;
+  }
+
+  @Test
+  void nonStaticInnerClasses() {
+    assertThrows(AvroTypeException.class, () -> {
+      ReflectData.get().getSchema(Definition.class);
+    });
+  }
+
+  @Test
+  void staticInnerClasses() {
+    ReflectData.get().getSchema(Meta.class);
   }
 }

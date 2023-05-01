@@ -21,8 +21,6 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -68,10 +66,7 @@ public final class Schemas {
   }
 
   public static void copyProperties(final JsonProperties from, final JsonProperties to) {
-    Map<String, Object> objectProps = from.getObjectProps();
-    for (Map.Entry<String, Object> entry : objectProps.entrySet()) {
-      to.addProp(entry.getKey(), entry.getValue());
-    }
+    from.forEachProperty(to::addProp);
   }
 
   public static boolean hasGeneratedJavaClass(final Schema schema) {
@@ -141,9 +136,8 @@ public final class Schemas {
             visited.put(schema, schema);
             break;
           case RECORD:
-            Iterator<Schema> reverseSchemas = schema.getFields().stream().map(Field::schema)
-                .collect(Collectors.toCollection(ArrayDeque::new)).descendingIterator();
-            terminate = visitNonTerminal(visitor, schema, dq, () -> reverseSchemas);
+            terminate = visitNonTerminal(visitor, schema, dq, () -> schema.getFields().stream().map(Field::schema)
+                .collect(Collectors.toCollection(ArrayDeque::new)).descendingIterator());
             visited.put(schema, schema);
             break;
           case UNION:
