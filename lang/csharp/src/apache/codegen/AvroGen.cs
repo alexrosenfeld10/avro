@@ -149,7 +149,7 @@ namespace Avro
             }
             else if (inputFiles.Any())
             {
-                GenSchema(inputFiles, outputDir, namespaceMapping);
+                GenSchema(inputFiles, outputDir, namespaceMapping, skipDirectoriesCreation);
             }
             else if (isProtocol.Value)
             {
@@ -157,7 +157,7 @@ namespace Avro
             }
             else
             {
-                rc = GenSchema(inputFile, outputDir, namespaceMapping, skipDirectoriesCreation);
+                rc = GenSchema(inputFile, outputDir, namespaceMapping);
             }
 
             return rc;
@@ -203,7 +203,7 @@ namespace Avro
         }
 
         public static int GenSchema(string infile, string outdir,
-            IEnumerable<KeyValuePair<string, string>> namespaceMapping, bool skipDirectories)
+            IEnumerable<KeyValuePair<string, string>> namespaceMapping)
         {
             try
             {
@@ -220,11 +220,14 @@ namespace Avro
             catch (Exception ex)
             {
                 Console.WriteLine("Exception occurred. " + ex.Message);
+                return 1;
             }
+
+            return 0;
         }
 
-        static void GenSchema(List<string> infiles, string outdir,
-            IEnumerable<KeyValuePair<string, string>> namespaceMapping)
+        public static int GenSchema(List<string> infiles, string outdir,
+            IEnumerable<KeyValuePair<string, string>> namespaceMapping, bool skipDirectories)
         {
             try
             {

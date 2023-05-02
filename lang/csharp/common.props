@@ -69,8 +69,8 @@
     <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
     <IsTestProject Condition="$(MSBuildProjectName.ToLower().EndsWith('.test')) or $(MSBuildProjectName.ToLower().StartsWith('.test'))">true</IsTestProject>
 
-    <RunAnalyzers Condition="'$(RunAnalyzers)' == ''">true</RunAnalyzers>
-    <RunAnalyzers Condition="'$(IsTestProject)' != 'true' and '$(IsSourceProject)' != 'true'">false</RunAnalyzers>
+    <RunAnalyzers>'$(RunAnalyzers)' == ''</RunAnalyzers>
+    <RunAnalyzers>'$(IsTestProject)' != 'true' and '$(IsSourceProject)' != 'true'</RunAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
