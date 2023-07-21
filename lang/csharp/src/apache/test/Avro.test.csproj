@@ -67,6 +67,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="data\unordered\avrofile.avsc">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="data\00_carModelAndPerson.avsc">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

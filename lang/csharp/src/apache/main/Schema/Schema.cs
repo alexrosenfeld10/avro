@@ -18,6 +18,8 @@
 using System;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Avro
 {
@@ -168,7 +170,7 @@ namespace Avro
                 NamedSchema schema = null;
                 if (names.TryGetValue(value, null, encspace, null, out schema)) return schema;
 
-                throw new SchemaParseException($"Undefined name: {value} at '{jtok.Path}'");
+                throw new SchemaParseException($"Undefined name: {encspace}.{value} at '{jtok.Path}'");
             }
 
             if (jtok is JArray) // union schema with no 'type' property or union type for a record field
@@ -260,12 +262,126 @@ namespace Avro
                     && json.EndsWith("]", StringComparison.Ordinal);
                 JContainer j = IsArray ? (JContainer)JArray.Parse(json) : (JContainer)JObject.Parse(json);
 
+                if (IsArray)
+                {
+                    var schemas = new List<Schema>();
+
+                    var namesTmp = CopySchemaNames(names);
+
+                    TokenQueue.AddRange(j as JArray);
+
+                    while(TokenQueue.Dequeue(out JToken jvalue))
+                    {
+                        try
+                        {
+                            Schema unionType = ParseJson(jvalue, namesTmp, encspace);
+
+                            schemas.Add(unionType);
+
+                            names = CopySchemaNames(namesTmp);
+
+                            TokenQueue.ResetFailed();
+                        }
+                        catch (SchemaParseException e)
+                        {
+                            if (jvalue.Type != JTokenType.Object)
+                                throw;
+
+                            TokenQueue.AddFailed(jvalue, e.Message);
+
+                            namesTmp = CopySchemaNames(names);
+                        }
+                    }
+
+                    if (!TokenQueue.Empty())
+                    {
+                        throw new SchemaParseException($"Can't parse schema: {TokenQueue.Errors()}");
+                    }
+
+                    return UnionSchema.Create(schemas, null);
+                }
+
                 return ParseJson(j, names, encspace);
             }
             catch (Newtonsoft.Json.JsonSerializationException ex)
             {
                 throw new SchemaParseException("Could not parse. " + ex.Message + Environment.NewLine + json);
             }
+        }
+
+        private static SchemaNames CopySchemaNames(SchemaNames names)
+        {
+            var namesTmp = new SchemaNames();
+            foreach (var n in names.Names)
+            {
+                namesTmp.Add(n.Key, n.Value);
+            }
+
+            return namesTmp;
+        }
+
+        class TokenInQueue
+        {
+            public JToken Token { get; set; }
+            public bool IsFailed { get; set; }
+            public string Error { get; set; }
+        }
+
+        static readonly ProcessingQueue TokenQueue = new ProcessingQueue();
+        class ProcessingQueue
+        {
+            readonly Queue<TokenInQueue> _queue = new Queue<TokenInQueue>();
+
+            public bool Dequeue(out JToken token)
+            {
+                if (!Empty())
+                {
+                    var item = _queue.Dequeue();
+                    if (!item.IsFailed)
+                    {
+                        token = item.Token;
+                        return true;
+                    }
+                }
+
+                token = null;
+                return false;
+            }
+
+            public void AddRange(JArray jArray)
+            {
+                foreach (JToken jvalue in jArray)
+                {
+                    _queue.Enqueue(new TokenInQueue
+                    {
+                        Token = jvalue,
+                        IsFailed = false
+                    }); ;
+                }
+            }
+
+            public void ResetFailed()
+            {
+                foreach (var item in _queue)
+                {
+                    item.IsFailed = false;
+                    item.Error = string.Empty;
+                }
+            }
+
+            public string Errors() => string.Join(",", _queue.Where(t => t.IsFailed).Select(t => t.Error));
+
+            public void AddFailed(JToken token, string error)
+            {
+                _queue.Enqueue(new TokenInQueue
+                {
+                    Token = token,
+                    Error = error,
+                    IsFailed = true
+                });
+            }
+
+            public bool Empty() => !_queue.Any();
         }
 
         /// <summary>
