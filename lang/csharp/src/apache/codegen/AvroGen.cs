@@ -241,6 +241,7 @@ namespace Avro
                     }
                 }
 
+                // mergin all files in a single one make easier the parse as we dont need to deal with file ordering, only type definition ordering is necessary.
                 var mergedSchema = MergeSchemaFiles(msfiles);
 
                 codegen.AddSchema(mergedSchema, sn, namespaceMapping);
