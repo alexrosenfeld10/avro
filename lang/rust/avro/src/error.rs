@@ -259,6 +259,9 @@ pub enum Error {
     #[error("Failed to parse schema from JSON")]
     ParseSchemaJson(#[source] serde_json::Error),
 
+    #[error("Failed to read schema")]
+    ReadSchemaFromReader(#[source] std::io::Error),
+
     #[error("Must be a JSON string, object or array")]
     ParseSchemaFromValidJson,
 
@@ -310,13 +313,19 @@ pub enum Error {
     #[error("Duplicate enum symbol {0}")]
     EnumSymbolDuplicate(String),
 
+    #[error("Default value for enum must be a string! Got: {0}")]
+    EnumDefaultWrongType(serde_json::Value),
+
     #[error("No `items` in array")]
     GetArrayItemsField,
 
     #[error("No `values` in map")]
     GetMapValuesField,
 
-    #[error("No `size` in fixed")]
+    #[error("Fixed schema `size` value must be a positive integer: {0}")]
+    GetFixedSizeFieldPositive(serde_json::Value),
+
+    #[error("Fixed schema has no `size`")]
     GetFixedSizeField,
 
     #[error("Failed to compress with flate")]
