@@ -113,9 +113,11 @@ namespace Avro
             this.SchemaName = name;
             this.Documentation = doc;
             this.aliases = aliases;
+            /*
             if (null != name.Name)  // Added this check for anonymous records inside Message
                 if (!names.Add(name, this))
                     throw new AvroException("Duplicate schema name " + name.Fullname);
+            */
         }
 
         /// <summary>

@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace Avro
 {
@@ -201,7 +202,13 @@ namespace Avro
                     if (null != schema)
                         return schema;
 
-                    return NamedSchema.NewInstance(jo, props, names, encspace);
+                    var newSchema =  NamedSchema.NewInstance(jo, props, names, encspace);
+
+                    if (null != newSchema.Name)  // Added this check for anonymous records inside Message
+                        if (!names.Add(newSchema.SchemaName, newSchema))
+                            throw new AvroException("Duplicate schema name " + newSchema.SchemaName.Fullname);
+
+                    return newSchema;
                 }
                 else if (jtype.Type == JTokenType.Array)
                     return UnionSchema.NewInstance(jtype as JArray, props, names, encspace);
@@ -269,7 +276,7 @@ namespace Avro
                     // Not the best way to do it, but it works for now:
                     // As failed parsed schema is added to names, when parsing fails we need to remove it.
                     // just make a backup copy here to rollback if need
-                    var namesTmp = CopySchemaNames(names);
+                    //var namesTmp = CopySchemaNames(names);
 
                     TokenQueue.AddRange(j as JArray);
 
@@ -282,7 +289,7 @@ namespace Avro
                             schemas.Add(unionType);
 
                             // take again backup of clean "names"
-                            namesTmp = CopySchemaNames(names);
+                            //namesTmp = CopySchemaNames(names);
 
                             TokenQueue.ResetFailed();
                         }
@@ -294,7 +301,7 @@ namespace Avro
                             TokenQueue.AddFailed(jvalue, e.Message);
 
                             // rollback "names" to previous state
-                            names = CopySchemaNames(namesTmp);
+                            //names = CopySchemaNames(namesTmp);
                         }
                     }
 
