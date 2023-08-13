@@ -273,11 +273,6 @@ namespace Avro
                 {
                     var schemas = new List<Schema>();
 
-                    // Not the best way to do it, but it works for now:
-                    // As failed parsed schema is added to names, when parsing fails we need to remove it.
-                    // just make a backup copy here to rollback if need
-                    //var namesTmp = CopySchemaNames(names);
-
                     TokenQueue.AddRange(j as JArray);
 
                     while(TokenQueue.Dequeue(out JToken jvalue))
@@ -288,9 +283,6 @@ namespace Avro
 
                             schemas.Add(unionType);
 
-                            // take again backup of clean "names"
-                            //namesTmp = CopySchemaNames(names);
-
                             TokenQueue.ResetFailed();
                         }
                         catch (SchemaParseException e)
@@ -299,9 +291,6 @@ namespace Avro
                                 throw;
 
                             TokenQueue.AddFailed(jvalue, e.Message);
-
-                            // rollback "names" to previous state
-                            //names = CopySchemaNames(namesTmp);
                         }
                     }
 
