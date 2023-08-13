@@ -18,7 +18,7 @@
 set -e
 
 usage() {
-  echo "Usage: $0 {clean|dist|interop-data-generate|interop-data-test|lint|test}"
+  echo "Usage: $0 {clean|dist|doc|interop-data-generate|interop-data-test|lint|test}"
   exit 1
 }
 
@@ -56,6 +56,7 @@ doc() {
   [[ -s VERSION.txt ]] || cp ../../share/VERSION.txt .
   doc_dir="../../build/avro-doc-$(<VERSION.txt)/api/py"
   python3 -m tox -e docs
+  mkdir -p "$doc_dir"
   cp -a docs/build/* "$doc_dir"
 }
 
